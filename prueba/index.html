@@ -1,0 +1,176 @@
+<title>Glanx Flow · prueba de revisión</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{--bg:#0f0f10;--panel:#18181b;--line:#2a2a2e;--tx:#ececec;--mut:#9a9aa2;--acc:#ff5a36;--ok:#3ecf8e;--warn:#f5b942;color-scheme:dark}
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;margin:0;padding:16px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--mut);margin:0 0 16px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type=text],textarea{background:var(--panel);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:9px 11px;font:inherit}
+  #link{flex:1;min-width:240px}
+  button{background:var(--panel);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+  button:hover{border-color:#555}
+  button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+  button.on{border-color:var(--acc);color:var(--acc)}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;margin-top:16px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .stage{position:relative;background:#000;border-radius:8px;overflow:hidden;display:flex;justify-content:center}
+  video{display:block;max-width:100%;max-height:70vh}
+  #draw{position:absolute;inset:0;margin:auto;touch-action:none}
+  .bar{position:relative;height:28px;margin:10px 0 6px;cursor:pointer}
+  .track{position:absolute;left:0;right:0;top:12px;height:4px;background:var(--line);border-radius:2px}
+  .buf{position:absolute;left:0;top:12px;height:4px;background:#444;border-radius:2px}
+  .prog{position:absolute;left:0;top:12px;height:4px;background:var(--acc);border-radius:2px}
+  .mk{position:absolute;top:4px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--warn);border:2px solid var(--panel)}
+  .mk.done{background:var(--ok)}
+  .tc{font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace}
+  #list{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;margin:10px 0}
+  .c{border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+  .c.done{opacity:.55}
+  .c .h{display:flex;justify-content:space-between;gap:8px;color:var(--mut);font-size:12px}
+  .c .h b{color:var(--acc)}
+  .c .acts{display:flex;gap:6px;margin-top:6px}
+  .c .acts button{padding:3px 8px;font-size:12px}
+  textarea{width:100%;min-height:64px;resize:vertical}
+  #log{font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--mut);white-space:pre-wrap;max-height:180px;overflow:auto;margin:0}
+  .ok{color:var(--ok)}.bad{color:#ff6b6b}
+  kbd{background:#222;border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12px}
+</style>
+
+<h1>Glanx Flow · prueba de revisión</h1>
+<p class="sub">Pega el enlace de un vídeo de Drive compartido como «Cualquier persona con el enlace». Se reproduce desde Drive y puedes comentar en el fotograma exacto.</p>
+
+<div class="row">
+  <input id="link" type="text" placeholder="https://drive.google.com/file/d/…/view">
+  <button class="pri" id="load">Cargar</button>
+</div>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <div class="stage" id="stage">
+        <video id="v" playsinline preload="metadata"></video>
+        <canvas id="draw" hidden></canvas>
+      </div>
+      <div class="bar" id="bar"><div class="track"></div><div class="buf" id="buf"></div><div class="prog" id="prog"></div><div id="mks"></div></div>
+      <div class="row">
+        <button id="play">▶ Reproducir</button>
+        <button id="back" title="Fotograma anterior (,)">◀ 1f</button>
+        <button id="fwd" title="Fotograma siguiente (.)">1f ▶</button>
+        <span class="tc" id="tc">00:00:00 / 00:00:00</span>
+        <label style="margin-left:auto;color:var(--mut)">fps
+          <select id="fps"><option>24</option><option>25</option><option selected>30</option><option>60</option></select>
+        </label>
+        <button id="pen" title="Dibujar sobre el fotograma">✎ Dibujar</button>
+        <button id="clr">Borrar dibujo</button>
+      </div>
+      <p class="sub" style="margin:8px 0 0"><kbd>Espacio</kbd> reproducir · <kbd>,</kbd> <kbd>.</kbd> fotograma · <kbd>C</kbd> comentar aquí</p>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="row" style="justify-content:space-between"><b>Diagnóstico</b><button id="seekTest">Probar saltos</button></div>
+      <pre id="log"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>Comentarios</b> <span class="sub" id="count"></span>
+    <div id="list"></div>
+    <div class="sub" style="margin:0 0 4px">En <span class="tc" id="at">00:00:00</span></div>
+    <textarea id="txt" placeholder="Escribe una corrección… (pausa el vídeo al escribir)"></textarea>
+    <div class="row" style="margin-top:8px"><input id="who" type="text" placeholder="Tu nombre" style="flex:1"><button class="pri" id="add">Comentar</button></div>
+  </div>
+</div>
+
+<script>
+const KEY='AIzaSyA74refU4Q1B8SUuypff5ngozlw_rJ86Y4';
+const $=id=>document.getElementById(id);
+const v=$('v'),cv=$('draw'),ctx=cv.getContext('2d');
+let fileId=null,comments=[],drawing=false,penOn=false,hasInk=false;
+
+const log=(m,cls)=>{const s=document.createElement('span');if(cls)s.className=cls;s.textContent=new Date().toLocaleTimeString()+'  '+m+'\n';$('log').appendChild(s);$('log').scrollTop=1e9};
+const fps=()=>+$('fps').value;
+const tc=t=>{if(!isFinite(t))t=0;const f=Math.floor((t%1)*fps()+1e-6),s=Math.floor(t)%60,m=Math.floor(t/60);return [m,s,f].map(n=>String(n).padStart(2,'0')).join(':')};
+const idFrom=u=>{const m=u.match(/\/d\/([\w-]{20,})/)||u.match(/[?&]id=([\w-]{20,})/)||u.match(/^([\w-]{20,})$/);return m&&m[1]};
+const store=()=>{try{localStorage.setItem('gf.c.'+fileId,JSON.stringify(comments))}catch(e){}};
+const loadStore=()=>{try{return JSON.parse(localStorage.getItem('gf.c.'+fileId))||[]}catch(e){return[]}};
+try{$('who').value=localStorage.getItem('gf.who')||''}catch(e){}
+
+$('load').onclick=async()=>{
+  fileId=idFrom($('link').value.trim());
+  if(!fileId){log('No encuentro el ID en ese enlace','bad');return}
+  log('ID: '+fileId);
+  try{
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,size,videoMediaMetadata&supportsAllDrives=true&key=${KEY}`);
+    const j=await r.json();
+    if(!r.ok){log('Metadatos: '+r.status+' '+(j.error&&j.error.message),'bad');return}
+    log(`Archivo: ${j.name} · ${j.mimeType} · ${(j.size/1048576).toFixed(1)} MB`+(j.videoMediaMetadata?` · ${j.videoMediaMetadata.width}×${j.videoMediaMetadata.height}`:''),'ok');
+  }catch(e){log('Metadatos: '+e.message,'bad')}
+  window.t0=performance.now();
+  v.src=`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true&key=${KEY}`;
+  comments=loadStore();render();
+};
+
+v.addEventListener('loadedmetadata',()=>{log(`Vídeo listo en ${Math.round(performance.now()-t0)} ms · ${v.duration.toFixed(2)} s · ${v.videoWidth}×${v.videoHeight}`,'ok');fit();render()});
+v.addEventListener('error',()=>log('El navegador no pudo reproducirlo (código '+(v.error&&v.error.code)+'). Drive puede estar bloqueando la descarga.','bad'));
+v.addEventListener('seeking',()=>window.s0=performance.now());
+v.addEventListener('seeked',()=>{if(window.s0)log(`Salto a ${tc(v.currentTime)} en ${Math.round(performance.now()-s0)} ms`)});
+v.addEventListener('play',()=>{$('play').textContent='❚❚ Pausa';hideInk()});
+v.addEventListener('pause',()=>$('play').textContent='▶ Reproducir');
+v.addEventListener('timeupdate',tick);v.addEventListener('progress',tick);
+function tick(){
+  const d=v.duration||1;$('prog').style.width=(v.currentTime/d*100)+'%';
+  if(v.buffered.length)$('buf').style.width=(v.buffered.end(v.buffered.length-1)/d*100)+'%';
+  $('tc').textContent=tc(v.currentTime)+' / '+tc(v.duration);$('at').textContent=tc(v.currentTime);
+}
+const step=n=>{v.pause();v.currentTime=Math.max(0,Math.min(v.duration,v.currentTime+n/fps()+0.0001))};
+$('play').onclick=()=>v.paused?v.play():v.pause();
+$('back').onclick=()=>step(-1);$('fwd').onclick=()=>step(1);
+$('bar').onclick=e=>{const r=$('bar').getBoundingClientRect();v.currentTime=(e.clientX-r.left)/r.width*(v.duration||0)};
+$('seekTest').onclick=async()=>{for(const p of [.25,.75,.1,.9]){v.currentTime=v.duration*p;await new Promise(r=>v.addEventListener('seeked',r,{once:true}))}log('Prueba de saltos terminada','ok')};
+
+// dibujo
+function fit(){const r=v.getBoundingClientRect();cv.width=r.width;cv.height=r.height;cv.style.width=r.width+'px';cv.style.height=r.height+'px';ctx.lineWidth=4;ctx.lineCap='round';ctx.strokeStyle='#ff3b30'}
+window.addEventListener('resize',fit);
+function hideInk(){cv.hidden=!penOn;if(!penOn){ctx.clearRect(0,0,cv.width,cv.height);hasInk=false}}
+$('pen').onclick=()=>{penOn=!penOn;$('pen').classList.toggle('on',penOn);v.pause();cv.hidden=false;fit();cv.style.cursor=penOn?'crosshair':''};
+$('clr').onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);hasInk=false};
+cv.onpointerdown=e=>{if(!penOn)return;drawing=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY)};
+cv.onpointermove=e=>{if(!drawing)return;ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();hasInk=true};
+window.onpointerup=()=>drawing=false;
+
+// comentarios
+$('txt').addEventListener('focus',()=>v.pause());
+$('add').onclick=()=>{
+  const t=$('txt').value.trim();if(!t||!fileId)return;
+  const who=$('who').value.trim()||'Cliente';try{localStorage.setItem('gf.who',who)}catch(e){}
+  comments.push({id:Date.now(),t:v.currentTime,txt:t,who,done:false,ink:hasInk?cv.toDataURL():null,w:cv.width});
+  comments.sort((a,b)=>a.t-b.t);store();$('txt').value='';
+  penOn=false;$('pen').classList.remove('on');hideInk();render();
+};
+function render(){
+  $('count').textContent=comments.length?`· ${comments.filter(c=>!c.done).length} pendientes de ${comments.length}`:'';
+  $('list').innerHTML='';$('mks').innerHTML='';
+  for(const c of comments){
+    const el=document.createElement('div');el.className='c'+(c.done?' done':'');
+    el.innerHTML=`<div class="h"><span><b class="tc">${tc(c.t)}</b> · ${esc(c.who)}${c.ink?' · ✎':''}</span><span>${c.done?'Resuelto':'Pendiente'}</span></div><div>${esc(c.txt)}</div><div class="acts"><button data-a="done">${c.done?'Reabrir':'Resolver'}</button><button data-a="del">Borrar</button></div>`;
+    el.onclick=e=>{const a=e.target.dataset.a;
+      if(a==='done'){c.done=!c.done;store();render();return}
+      if(a==='del'){comments=comments.filter(x=>x!==c);store();render();return}
+      v.pause();v.currentTime=c.t;showInk(c)};
+    $('list').appendChild(el);
+    if(v.duration){const m=document.createElement('div');m.className='mk'+(c.done?' done':'');m.style.left=(c.t/v.duration*100)+'%';m.title=tc(c.t)+' · '+c.txt;m.onclick=e=>{e.stopPropagation();v.pause();v.currentTime=c.t;showInk(c)};$('mks').appendChild(m)}
+  }
+}
+function showInk(c){fit();ctx.clearRect(0,0,cv.width,cv.height);cv.hidden=!c.ink&&!penOn;if(c.ink){const i=new Image();i.onload=()=>ctx.drawImage(i,0,0,cv.width,cv.height);i.src=c.ink}}
+const esc=s=>s.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+document.addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+  if(e.code==='Space'){e.preventDefault();v.paused?v.play():v.pause()}
+  if(e.key===',')step(-1);if(e.key==='.')step(1);
+  if(e.key==='c'||e.key==='C'){e.preventDefault();$('txt').focus()}
+});
+</script>
