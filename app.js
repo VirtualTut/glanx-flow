@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = '202611101514';
+const APP_V = '202611101518';
 /* Glanx Flow — clientes → proyectos → entregables (tablero) → versiones → comentarios con timecode.
    Supabase compartido con Glanx Guiones (tablas flow_*). Vídeos en Google Drive, reproducidos con la API de Drive. */
 const SB_URL = 'https://egjzkvlcqqwqxcugsfed.supabase.co', SB_KEY = 'sb_publishable_4LS7xS-Tzm39nRtrFptIFQ_L3FahX4Q';
